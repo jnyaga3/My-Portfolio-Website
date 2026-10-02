@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ems
+      POSTGRES_PASSWORD: ems
+      POSTGRES_DB: ems
+    ports: ["5432:5432"]
+    volumes: [ems_pgdata:/var/lib/postgresql/data]
+  anvil:
+    image: ghcr.io/foundry-rs/foundry:latest
+    command: anvil --host 0.0.0.0
+    ports: ["8545:8545"]
+volumes:
+  ems_pgdata:

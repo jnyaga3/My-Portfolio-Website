@@ -1,0 +1,3 @@
+import { expect } from 'chai';
+import { ethers } from 'hardhat';
+describe('Election', () => { it('publishes and accepts one vote per wallet', async () => { const [owner, voter] = await ethers.getSigners(); const now = Math.floor(Date.now()/1000); const C = await ethers.getContractFactory('Election'); const election = await C.deploy('Test', now - 1, now + 3600, ['Alice','Bob']); await election.publish(); await expect(election.connect(voter).vote(1, ethers.keccak256(ethers.toUtf8Bytes('ballot')))).to.emit(election, 'VoteCast'); await expect(election.connect(voter).vote(1, ethers.ZeroHash)).to.be.revertedWith('already voted'); expect(await election.totalVotes()).to.equal(1); }); });

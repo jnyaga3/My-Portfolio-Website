@@ -1,0 +1,1 @@
+{"name":"ems","private":true,"packageManager":"pnpm@9.15.0","scripts":{"dev":"pnpm --filter web dev","build":"pnpm -r build","test":"pnpm --filter contracts test","lint":"pnpm --filter web lint"},"devDependencies":{"typescript":"^5.6.3"}}

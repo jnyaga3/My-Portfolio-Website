@@ -1,0 +1,155 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Election {
+  id             String           @id @default(cuid())
+  title          String
+  description    String?
+  contractAddress String?         @unique
+  chainId        Int
+  membershipGroupId String?
+  membershipRoot String?
+  proofVerifierVersion String @default("semaphore-v4-adapter")
+  ballotEncryptionKey String?
+  startAt        DateTime
+  endAt          DateTime
+  status         ElectionStatus   @default(DRAFT)
+  candidates     Candidate[]
+  credentials    AnonymousCredential[]
+  votes          Vote[]
+  anonymousBallots AnonymousBallot[]
+  auditLogs      AuditLog[]
+  notifications  Notification[]
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@index([status, startAt, endAt])
+}
+
+model Candidate {
+  id        String   @id @default(cuid())
+  name      String
+  electionId String
+  election  Election @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  votes     Vote[]
+  createdAt DateTime @default(now())
+
+  @@unique([electionId, name])
+  @@unique([id, electionId])
+  @@index([electionId, createdAt])
+}
+
+model Voter {
+  id          String               @id @default(cuid())
+  walletAddress String             @unique
+  displayName String?
+  email       String?
+  verified    Boolean              @default(false)
+  credentials AnonymousCredential[]
+  votes       Vote[]
+  createdAt   DateTime             @default(now())
+}
+
+model AnonymousCredential {
+  id                   String   @id @default(cuid())
+  voterId              String
+  voter                Voter    @relation(fields: [voterId], references: [id], onDelete: Cascade)
+  electionId           String
+  election             Election @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  credentialCommitment String   @unique
+  issuedAt             DateTime @default(now())
+  consumedAt           DateTime?
+  expiresAt            DateTime?
+  revokedAt            DateTime?
+  revocationReason     String?
+  status               CredentialStatus @default(ACTIVE)
+
+  @@unique([voterId, electionId])
+  @@index([electionId, status])
+}
+
+model Vote {
+  id                   String    @id @default(cuid())
+  ballotHash           String    @unique
+  txHash               String?   @unique
+  voterId              String?
+  voter                Voter?    @relation(fields: [voterId], references: [id])
+  electionId           String
+  election             Election  @relation(fields: [electionId], references: [id])
+  candidateId          String
+  candidate            Candidate @relation(fields: [candidateId, electionId], references: [id, electionId])
+  payloadUri           String?
+  payloadCiphertextHash String?
+  castAt               DateTime  @default(now())
+
+  @@index([electionId, castAt])
+  @@index([candidateId])
+}
+
+/// Deliberately contains no voterId. A nullifier is the only anti-double-vote
+/// identifier retained for an anonymous ballot.
+model AnonymousBallot {
+  id                String   @id @default(cuid())
+  electionId        String
+  election          Election @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  nullifier         String   @unique
+  ballotCommitment  String
+  ciphertextHash    String
+  proof             String
+  txHash            String?  @unique
+  submittedAt       DateTime @default(now())
+
+  @@index([electionId, submittedAt])
+}
+
+model AuditLog {
+  id         String    @id @default(cuid())
+  electionId String?
+  election   Election? @relation(fields: [electionId], references: [id], onDelete: SetNull)
+  actorId    String?
+  action     String
+  entityType String
+  entityId   String?
+  metadata   Json?
+  createdAt  DateTime  @default(now())
+
+  @@index([electionId, createdAt])
+}
+
+model Notification {
+  id         String              @id @default(cuid())
+  electionId String?
+  election   Election?           @relation(fields: [electionId], references: [id], onDelete: SetNull)
+  recipient  String
+  channel    NotificationChannel
+  template   String
+  payload    Json?
+  sentAt     DateTime?
+  createdAt  DateTime            @default(now())
+
+  @@index([recipient, createdAt])
+}
+
+enum ElectionStatus {
+  DRAFT
+  LIVE
+  CLOSED
+}
+
+enum CredentialStatus {
+  ACTIVE
+  REVOKED
+  CONSUMED
+}
+
+enum NotificationChannel {
+  EMAIL
+  WEBHOOK
+  IN_APP
+}
